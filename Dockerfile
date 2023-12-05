@@ -28,10 +28,10 @@ RUN git clone https://github.com/CompVis/taming-transformers.git /stable-diffusi
 RUN git clone https://github.com/crowsonkb/k-diffusion.git /stable-diffusion-webui/repositories/k-diffusion
 RUN git -C /stable-diffusion-webui/repositories/k-diffusion checkout v0.1.1
 
-RUN git clone https://github.com/sczhou/CodeFormer.git /stable-diffusion-webui/repositories/CodeFormer
+# RUN git clone https://github.com/sczhou/CodeFormer.git /stable-diffusion-webui/repositories/CodeFormer
 RUN git clone https://github.com/salesforce/BLIP.git /stable-diffusion-webui/repositories/BLIP
 
-RUN pip install -r /stable-diffusion-webui/repositories/CodeFormer/requirements.txt --prefer-binary
+# RUN pip install -r /stable-diffusion-webui/repositories/CodeFormer/requirements.txt --prefer-binary
 RUN pip install -r /stable-diffusion-webui/requirements_versions.txt --prefer-binary
 
 # extensions
