@@ -1,54 +1,77 @@
 # Dockerfile v1.6
+FROM alpine/git:2.36.2 as download
 
-FROM nvidia/cuda:11.8.0-runtime-ubuntu22.04
+COPY clone.sh /clone.sh
 
-ENV DEBIAN_FRONTEND noninteractive
+RUN . /clone.sh stable-diffusion-stability-ai https://github.com/Stability-AI/stablediffusion.git cf1d67a6fd5ea1aa600c4df58e5b47da45f6bdbf \
+  && rm -rf assets data/**/*.png data/**/*.jpg data/**/*.gif
 
-RUN set -eux && apt-get update && \
-    apt install -y wget git git-lfs python3 python3-venv python3-pip libgl1 libglib2.0-0 ffmpeg libsm6 libxext6 && \
-    apt clean && \
-    rm -rf /var/lib/apt/lists/*
+RUN . /clone.sh CodeFormer https://github.com/sczhou/CodeFormer.git c5b4593074ba6214284d6acd5f1719b6c5d739af \
+  && rm -rf assets inputs
 
-RUN pip install torch==1.13.1+cu117 torchvision==0.14.1+cu117 --extra-index-url https://download.pytorch.org/whl/cu117
-RUN pip install git+https://github.com/TencentARC/GFPGAN.git@8d2447a2d918f8eba5a4a01463fd48e45126a379 --prefer-binary
-RUN pip install git+https://github.com/openai/CLIP.git@d50d76daa670286dd6cacf3bcd80b5e4823fc8e1 --prefer-binary
-RUN pip install git+https://github.com/mlfoundations/open_clip.git@bb6e834e9c70d9c27d0dc3ecedeebeaeb1ffad6b --prefer-binary
-RUN pip install xformers --prefer-binary
-RUN pip install pyngrok --prefer-binary
+RUN . /clone.sh BLIP https://github.com/salesforce/BLIP.git 48211a1594f1321b00f14c9f7a5b4813144b2fb9
+RUN . /clone.sh k-diffusion https://github.com/crowsonkb/k-diffusion.git ab527a9a6d347f364e3d185ba6d714e22d80cb3c
+RUN . /clone.sh clip-interrogator https://github.com/pharmapsychotic/clip-interrogator 2cf03aaf6e704197fd0dae7c7f96aa59cf1b11c9
+RUN . /clone.sh generative-models https://github.com/Stability-AI/generative-models 45c443b316737a4ab6e40413d7794a7f5657c19f
+RUN . /clone.sh taming-transformers https://github.com/CompVis/taming-transformers.git 3ba01b241669f5ade541ce990f7650a3b8f65318
 
-RUN pip install --pre triton
-RUN pip install numexpr
 
-RUN git clone https://github.com/AUTOMATIC1111/stable-diffusion-webui.git
+# FROM nvidia/cuda:11.8.0-runtime-ubuntu22.04
+FROM pytorch/pytorch:2.1.0-cuda12.1-cudnn8-runtime
 
-RUN git clone https://github.com/Stability-AI/stablediffusion.git /stable-diffusion-webui/repositories/stable-diffusion-stability-ai && \
-    git -C /stable-diffusion-webui/repositories/stable-diffusion-stability-ai checkout cf1d67a6fd5ea1aa600c4df58e5b47da45f6bdbf
 
-RUN git clone https://github.com/CompVis/taming-transformers.git /stable-diffusion-webui/repositories/taming-transformers
-RUN git clone https://github.com/crowsonkb/k-diffusion.git /stable-diffusion-webui/repositories/k-diffusion
-RUN git -C /stable-diffusion-webui/repositories/k-diffusion checkout v0.1.1
+ENV DEBIAN_FRONTEND=noninteractive PIP_PREFER_BINARY=1
 
-# RUN git clone https://github.com/sczhou/CodeFormer.git /stable-diffusion-webui/repositories/CodeFormer
-RUN git clone https://github.com/salesforce/BLIP.git /stable-diffusion-webui/repositories/BLIP
+RUN --mount=type=cache,target=/var/cache/apt \
+  apt-get update && \
+  # we need those
+  apt-get install -y fonts-dejavu-core rsync git jq moreutils aria2 \
+  # extensions needs those
+  ffmpeg libglfw3-dev libgles2-mesa-dev pkg-config libcairo2 libcairo2-dev build-essential
 
-# RUN pip install -r /stable-diffusion-webui/repositories/CodeFormer/requirements.txt --prefer-binary
-RUN pip install -r /stable-diffusion-webui/requirements_versions.txt --prefer-binary
+WORKDIR /
+RUN --mount=type=cache,target=/root/.cache/pip \
+  git clone https://github.com/AUTOMATIC1111/stable-diffusion-webui.git && \
+  cd stable-diffusion-webui && \
+  git reset --hard 4afaaf8a020c1df457bcf7250cb1c7f609699fa7 && \
+  pip install -r requirements_versions.txt
 
-# extensions
-RUN git clone https://github.com/yfszzx/stable-diffusion-webui-images-browser.git /stable-diffusion-webui/extensions/stable-diffusion-webui-images-browser
-RUN git clone https://github.com/ranting8323/sd-webui-additional-networks.git /stable-diffusion-webui/extensions/sd-webui-additional-networks
-RUN git clone https://github.com/ranting8323/sd-webui-cutoff.git /stable-diffusion-webui/extensions/sd-webui-cutoff
-RUN git clone https://github.com/toshiaki1729/stable-diffusion-webui-dataset-tag-editor.git /stable-diffusion-webui/extensions/stable-diffusion-webui-dataset-tag-editor
-RUN git clone https://github.com/yfszzx/stable-diffusion-webui-images-browser.git /stable-diffusion-webui/extensions/stable-diffusion-webui-images-browser
-RUN git clone https://github.com/ranting8323/stable-diffusion-webui-wd14-tagger.git /stable-diffusion-webui/extensions/stable-diffusion-webui-wd14-tagger
-RUN git clone https://github.com/overbill1683/stable-diffusion-webui-localization-zh_Hans.git /stable-diffusion-webui/extensions/stable-diffusion-webui-localization-zh_Hans
-RUN git clone https://github.com/ranting8323/a1111-sd-webui-tagcomplete.git /stable-diffusion-webui/extensions/a1111-sd-webui-tagcomplete
-RUN git clone https://github.com/Mikubill/sd-webui-controlnet.git /stable-diffusion-webui/extensions/sd-webui-controlnet
-RUN git clone https://github.com/deforum-art/sd-webui-deforum /stable-diffusion-webui/extensions/deforum
-RUN pip install -r /stable-diffusion-webui/extensions/sd-webui-controlnet/requirements.txt --prefer-binary
+ENV ROOT=/stable-diffusion-webui
 
+COPY --from=download /repositories/ ${ROOT}/repositories/
+RUN mkdir ${ROOT}/interrogate && cp ${ROOT}/repositories/clip-interrogator/clip_interrogator/data/* ${ROOT}/interrogate
+RUN --mount=type=cache,target=/root/.cache/pip \
+  pip install -r ${ROOT}/repositories/CodeFormer/requirements.txt
+
+RUN --mount=type=cache,target=/root/.cache/pip \
+  pip install pyngrok xformers \
+  git+https://github.com/TencentARC/GFPGAN.git@8d2447a2d918f8eba5a4a01463fd48e45126a379 \
+  git+https://github.com/openai/CLIP.git@d50d76daa670286dd6cacf3bcd80b5e4823fc8e1 \
+  git+https://github.com/mlfoundations/open_clip.git@bb6e834e9c70d9c27d0dc3ecedeebeaeb1ffad6b
+
+  # extensions
+RUN git clone https://github.com/yfszzx/stable-diffusion-webui-images-browser.git ${ROOT}/extensions/stable-diffusion-webui-images-browser
+RUN git clone https://github.com/kohya-ss/sd-webui-additional-networks.git ${ROOT}/extensions/sd-webui-additional-networks
+RUN git clone https://github.com/hnmr293/sd-webui-cutoff.git ${ROOT}/extensions/sd-webui-cutoff
+RUN git clone https://github.com/toshiaki1729/stable-diffusion-webui-dataset-tag-editor.git ${ROOT}/extensions/stable-diffusion-webui-dataset-tag-editor
+RUN git clone https://github.com/picobyte/stable-diffusion-webui-wd14-tagger.git ${ROOT}/extensions/stable-diffusion-webui-wd14-tagger
+RUN git clone https://github.com/hanamizuki-ai/stable-diffusion-webui-localization-zh_Hans.git ${ROOT}/extensions/stable-diffusion-webui-localization-zh_Hans
+RUN git clone https://github.com/DominikDoom/a1111-sd-webui-tagcomplete.git ${ROOT}/extensions/a1111-sd-webui-tagcomplete
+RUN git clone https://github.com/Mikubill/sd-webui-controlnet.git ${ROOT}/extensions/sd-webui-controlnet
+RUN git clone https://github.com/deforum-art/sd-webui-deforum ${ROOT}/extensions/deforum
+RUN pip install -r ${ROOT}/extensions/sd-webui-controlnet/requirements.txt --prefer-binary
+
+COPY . /docker
+
+  RUN \
+  # mv ${ROOT}/style.css ${ROOT}/user.css && \
+  # one of the ugliest hacks I ever wrote \
+  sed -i 's/in_app_dir = .*/in_app_dir = True/g' /opt/conda/lib/python3.10/site-packages/gradio/routes.py && \
+  git config --global --add safe.directory '*'
+
+WORKDIR ${ROOT}
+ENV NVIDIA_VISIBLE_DEVICES=all
+ENV CLI_ARGS=""
 EXPOSE 7860
-
-WORKDIR /stable-diffusion-webui/
-
-CMD ["python3", "launch.py", "--listen", "--xformers", "--medvram", "--enable-insecure-extension-access"]
+ENTRYPOINT ["/docker/entrypoint.sh"]
+CMD python -u webui.py --listen --port 7860 ${CLI_ARGS}
