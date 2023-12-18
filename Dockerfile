@@ -17,7 +17,7 @@ RUN . /clone.sh taming-transformers https://github.com/CompVis/taming-transforme
 
 
 # FROM nvidia/cuda:11.8.0-runtime-ubuntu22.04
-FROM pytorch/pytorch:2.1.1-cuda12.1-cudnn8-runtime
+FROM pytorch/pytorch:2.1.2-cuda12.1-cudnn8-runtime
 
 
 ENV DEBIAN_FRONTEND=noninteractive PIP_PREFER_BINARY=1
