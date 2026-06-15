@@ -1,5 +1,5 @@
 # Dockerfile v1.6
-FROM alpine/git:2.52.0 as download
+FROM alpine/git:v2.54.0 as download
 
 COPY clone.sh /clone.sh
 
